@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>উবার সার্ভিস · দেশি প্রাইভেট কার থ্রিডি</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #0e1318;
+      --panel-bg: rgba(16, 22, 29, 0.92);
+      --accent-green: #00b875;
+      --accent-yellow: #ffd12a;
+      --accent-pink: #ff4fa3;
+      --accent-red: #ff3b30;
+      --text-main: #f4f7fa;
+      --text-muted: #9fb0c0;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Hind Siliguri', system-ui, -apple-system, sans-serif;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+
+    /* সাধারণ HUD: বাম কোণায় টাকার বার (কোনো অ্যাডমিন ইঙ্গিত নেই) */
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      display: none;
+    }
+
+    #money-hud {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      pointer-events: auto;
+      cursor: default;
+      user-select: none;
+      touch-action: manipulation;
+      background: rgba(12, 18, 24, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 8px 14px;
+      min-width: 168px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    .money-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .money-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent-yellow);
+      line-height: 1.15;
+    }
+
+    .loss-val {
+      font-size: 12px;
+      color: #ff8e88;
+      margin-top: 2px;
+    }
+
+    #top-center-alerts {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      text-align: center;
+    }
+
+    .badge-alert {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .badge-wrong { background: rgba(255, 166, 0, 0.92); color: #111; }
+    .badge-public { background: rgba(255, 59, 48, 0.94); color: #fff; }
+    .badge-bus { background: rgba(190, 0, 0, 0.96); color: #fff; animation: pulse 0.5s infinite alternate; }
+    .badge-info { background: rgba(0, 184, 117, 0.92); color: #08120e; }
+
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.06); }
+    }
+
+    #top-right-hud {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .status-box {
+      background: rgba(12, 18, 24, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 8px 12px;
+      min-width: 150px;
+      backdrop-filter: blur(6px);
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    #battery-fill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #ff3b30, #ffd12a, #00e088);
+      transition: width 0.12s linear;
+    }
+
+    .hud-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .hud-btn {
+      background: rgba(16, 22, 29, 0.88);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .hud-btn:hover { background: rgba(36, 48, 60, 0.95); }
+
+    /* মোবাইল টাচ কন্ট্রোল */
+    #touch-controls {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .touch-cluster {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .touch-row {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .t-btn {
+      width: 58px;
+      height: 54px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(15, 22, 28, 0.72);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+
+    .t-btn:active, .t-btn.active {
+      background: var(--accent-green);
+      color: #07140e;
+      transform: scale(0.95);
+    }
+
+    .t-btn.wide { width: 82px; }
+    .t-btn.boost { background: rgba(255, 209, 42, 0.24); border-color: var(--accent-yellow); color: var(--accent-yellow); }
+    .t-btn.brake { background: rgba(255, 59, 48, 0.22); border-color: var(--accent-red); }
+
+    /* স্টার্ট, পজ ও নিউজপেপার ওভারলে */
+    .overlay-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(16, 44, 34, 0.88), rgba(8, 12, 16, 0.96));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 16px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 540px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+
+    h1.game-title {
+      margin: 0 0 4px;
+      font-size: 34px;
+      color: var(--accent-yellow);
+      line-height: 1.1;
+    }
+
+    .tagline {
+      margin: 0 0 16px;
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .rule-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #00c87e, #009c60);
+      color: #05160e;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover { filter: brightness(1.08); }
+
+    .btn-secondary {
+      padding: 9px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-main);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* সংবাদপত্র ক্যানভাস */
+    #newspaper-preview {
+      width: 100%;
+      max-width: 360px;
+      display: block;
+      margin: 0 auto 14px;
+      border-radius: 8px;
+      border: 2px solid #d5cab4;
+      background: #f5ecd8;
+    }
+
+    /* ==========================================================
+       গোপন অ্যাডমিন মডাল ও কন্ট্রোল প্যানেল (ডিফল্ট: সম্পূর্ণ অদৃশ্য)
+       ========================================================== */
+    #admin-auth-modal, #admin-panel-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 12, 0.84);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 360px;
+      background: #141c24;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+    }
+
+    .admin-box {
+      width: 100%;
+      max-width: 920px;
+      max-height: 92vh;
+      background: #121921;
+      border: 1px solid rgba(0, 184, 117, 0.35);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75);
+    }
+
+    .admin-header {
+      padding: 14px 20px;
+      background: #0b1016;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .admin-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 10px 20px;
+      background: #0f151d;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-green);
+      color: #061810;
+      border-color: var(--accent-green);
+    }
+
+    .admin-body {
+      padding: 18px 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .form-row {
+      margin-bottom: 12px;
+    }
+
+    .form-row label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .input-ctrl, select, textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: #0b1016;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .map-builder-layout {
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 720px) {
+      .map-builder-layout { grid-template-columns: 1fr; }
+      .rules-grid { grid-template-columns: 1fr; }
+    }
+
+    #map-grid-canvas {
+      width: 100%;
+      background: #090d12;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      cursor: crosshair;
+      display: block;
+    }
+
+    .tool-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .tool-chip {
+      padding: 7px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: #19222c;
+      color: #dce6f0;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .tool-chip.active {
+      border-color: var(--accent-yellow);
+      background: rgba(255, 209, 42, 0.16);
+      color: var(--accent-yellow);
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+    }
+
+    .msg-note {
+      font-size: 13px;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- সাধারণ গেমপ্লে HUD (কন্ট্রোল প্যানেলের কোনো চিহ্ন নেই) -->
+  <div id="hud">
+    <div id="money-hud" title="পকেট ও জাতীয় ক্ষতি">
+      <div class="money-label">
+        <span>পকেট টাকা</span>
+        <span id="hud-speed">০ কিমি/ঘণ্টা</span>
+      </div>
+      <div class="money-val" id="hud-pocket">৳০</div>
+      <div class="loss-val" id="hud-loss">জাতীয় ক্ষতি: ৳০</div>
+    </div>
+
+    <div id="top-center-alerts">
+      <div class="badge-alert badge-wrong" id="alert-wrong">উল্টো পথ · ক্ষতি ×১.৫</div>
+      <div class="badge-alert badge-public" id="alert-public">পাবলিক পিছে! দ্রুত পালান!</div>
+      <div class="badge-alert badge-bus" id="alert-bus">নিচে লাল আলো: বাস/ট্রাক খুব কাছে!</div>
+      <div class="badge-alert badge-info" id="alert-info"></div>
+    </div>
+
+    <div id="top-right-hud">
+      <div class="status-box">
+        <div class="money-label">
+          <span>অটো ব্যাটারি</span>
+          <span id="hud-bat-pct">১০০%</span>
+        </div>
+        <div class="bar-track"><div id="battery-fill"></div></div>
+        <div class="money-label" style="margin-top:6px;">
+          <span id="hud-station">এলাকা: শাহবাগ</span>
+          <span id="hud-passenger">যাত্রী: নেই</span>
+        </div>
+      </div>
+      <div class="hud-btn-row">
+        <button class="hud-btn" id="btn-cam">ক্যামেরা (C)</button>
+        <button class="hud-btn" id="btn-mute">শব্দ (M)</button>
+        <button class="hud-btn" id="btn-pause">বিরতি (P)</button>
+      </div>
+    </div>
+
+    <div id="touch-controls">
+      <div class="touch-cluster">
+        <div class="touch-row" style="justify-content:flex-start;">
+          <button class="t-btn" id="t-horn">হর্ন</button>
+          <button class="t-btn wide" id="t-bomb">শব্দবোমা</button>
+        </div>
+        <div class="touch-row" style="justify-content:flex-start;">
+          <button class="t-btn" id="t-left">◀</button>
+          <button class="t-btn" id="t-right">▶</button>
+        </div>
+      </div>
+      <div class="touch-cluster">
+        <div class="touch-row">
+          <button class="t-btn wide" id="t-drive">চালান</button>
+        </div>
+        <div class="touch-row">
+          <button class="t-btn brake" id="t-brake">ব্রেক</button>
+          <button class="t-btn wide boost" id="t-boost">⚡ টান</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- স্টার্ট স্ক্রিন -->
+  <div class="overlay-screen" id="start-screen">
+    <div class="card">
+      <h1 class="game-title">বাপের রাস্তা</h1>
+      <p class="tagline">রাস্তা কি আপনার বাপের? আপনার সন্তানকে দেশি টেসলা দিন: নো লাইসেন্স, নো ব্রেক!</p>
+      <div class="rules-grid">
+        <div class="rule-pill">💥 <b>গাড়ি, বাইক ও দোকান:</b> যত ভাঙবেন, তত জাতীয় ক্ষতি ও পকেটে টাকা।</div>
+        <div class="rule-pill">🚌 <b>বাস-ট্রাক ছুঁলেই শেষ:</b> নিচে লাল আলো দেখলেই দূরে সরে যান।</div>
+        <div class="rule-pill">⚡ <b>চার্জ শেষ হলে:</b> হলুদ দাগে থামুন, লাইন সরাসরি মেইন থেকে।</div>
+        <div class="rule-pill">৳ <b>সানডে মানডে ক্লোজ:</b> গোলাপি দাগে মামাকে চা-পানি দিয়ে ধাওয়া থামান।</div>
+      </div>
+      <div style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
+        কন্ট্রোল: <b>W/↑</b> চালান · <b>Space/Shift</b> টান · <b>S/↓</b> ব্রেক · <b>A/D</b> ঘোরান · <b>H</b> হর্ন · <b>B</b> শব্দবোমা · <b>C</b> ক্যামেরা
+      </div>
+      <button class="btn-primary" id="btn-start-game">রাস্তায় নামুন</button>
+    </div>
+  </div>
+
+  <!-- বিরতি (Pause) স্ক্রিন -->
+  <div class="overlay-screen" id="pause-screen" style="display:none;">
+    <div class="card" style="max-width:400px; text-align:center;">
+      <h2 style="margin-top:0; color:var(--accent-yellow);">চা-বিরতি</h2>
+      <p style="color:var(--text-muted); font-size:14px;">জ্যাম তো আর পালাচ্ছে না। চা খেয়ে আবার চালিয়ে যান।</p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+        <button class="btn-primary" id="btn-resume">আবার চালান</button>
+        <button class="btn-secondary" id="btn-restart-from-pause">নতুন করে শুরু</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- গেম ওভার: দৈনিক যানজট সংবাদপত্র -->
+  <div class="overlay-screen" id="gameover-screen" style="display:none;">
+    <div class="card" style="text-align:center;">
+      <h2 style="margin:0 0 10px; color:#ff6359;" id="gameover-reason">গণধোলাই খেয়ে রান শেষ!</h2>
+      <canvas id="newspaper-preview" width="540" height="675"></canvas>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button class="btn-secondary" id="btn-download-card">ছবি নামান</button>
+        <button class="btn-primary" style="width:auto; padding:10px 24px;" id="btn-play-again">আবার রাস্তায় নামুন</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- গোপন পাসওয়ার্ড মডাল (বাম কোণার টাকার বারে ৫ ক্লিকে খোলে) -->
+  <div id="admin-auth-modal">
+    <div class="auth-box">
+      <h3 style="margin:0 0 6px; color:var(--accent-yellow);">কন্ট্রোল প্যানেল প্রবেশ</h3>
+      <p style="margin:0 0 14px; font-size:13px; color:var(--text-muted);">
+        অ্যাডমিন প্যানেল খুলতে আপনার গোপন পাসওয়ার্ড দিন।
+      </p>
+      <div class="form-row">
+        <input type="password" id="admin-pass-input" class="input-ctrl" placeholder="পাসওয়ার্ড লিখুন" autocomplete="off" />
+      </div>
+      <div class="msg-note" id="auth-error" style="color:#ff6b6b;"></div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn-secondary" style="flex:1;" id="btn-auth-cancel">বাতিল</button>
+        <button class="btn-primary" style="flex:1; font-size:15px; padding:10px;" id="btn-auth-submit">খুলুন</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- গোপন অ্যাডমিন কন্ট্রোল প্যানেল -->
+  <div id="admin-panel-modal">
+    <div class="admin-box">
+      <div class="admin-header">
+        <div>
+          <strong style="font-size:18px; color:var(--accent-green);">অ্যাডমিন কন্ট্রোল প্যানেল</strong>
+          <span style="font-size:12px; color:var(--text-muted); margin-left:8px;">লাইভ ম্যাপ বিল্ডার ও গেম এডিটর</span>
+        </div>
+        <button class="btn-secondary" id="btn-close-admin">বন্ধ করে গেমে ফিরুন</button>
+      </div>
+
+      <div class="admin-tabs">
+        <button class="tab-btn active" data-tab="tab-map">ম্যাপ বিল্ডার</button>
+        <button class="tab-btn" data-tab="tab-editor">গেম ও ফিজিক্স এডিটর</button>
+        <button class="tab-btn" data-tab="tab-settings">সেটিংস ও পাসওয়ার্ড</button>
+      </div>
+
+      <div class="admin-body">
+        <!-- ট্যাব ১: ম্যাপ বিল্ডার -->
+        <div class="tab-pane active" id="tab-map">
+          <div class="map-builder-layout">
+            <div>
+              <div style="font-size:13px; font-weight:700; margin-bottom:6px; color:var(--accent-yellow);">টুল নির্বাচন করুন:</div>
+              <div class="tool-grid" id="map-tool-list">
+                <button class="tool-chip active" data-tool="building">🏢 ভবন / দোকান</button>
+                <button class="tool-chip" data-tool="landmark">🏛️ ল্যান্ডমার্ক</button>
+                <button class="tool-chip" data-tool="mrt">🚇 মেট্রো স্টেশন</button>
+                <button class="tool-chip" data-tool="charge">⚡ হলুদ চার্জ জোন</button>
+                <button class="tool-chip" data-tool="bribe">৳ গোলাপি চা-পানি</button>
+                <button class="tool-chip" data-tool="hawker">⛺ হকার দোকান</button>
+                <button class="tool-chip" data-tool="breaker">〰️ স্পিড ব্রেকার</button>
+                <button class="tool-chip" data-tool="blockade">🚧 অবরোধ র‍্যাম্প</button>
+                <button class="tool-chip" data-tool="erase">🧹 মুছে ফেলুন</button>
+              </div>
+
+              <div class="form-row">
+                <label>স্থাপনার কাস্টম বাংলা নাম (সাইনবোর্ড):</label>
+                <input type="text" id="map-custom-label" class="input-ctrl" placeholder="যেমন: মায়ের দোয়া স্টোর" />
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <button class="btn-primary" style="font-size:15px; padding:10px;" id="btn-apply-map">সেভ ও ৩ডি ম্যাপ আপডেট করুন</button>
+                <button class="btn-secondary" id="btn-reset-default-map">ডিফল্ট ঢাকা ম্যাপ লোড করুন</button>
+              </div>
+
+              <div class="form-row" style="margin-top:12px;">
+                <label>ম্যাপ JSON এক্সপোর্ট / ইম্পোর্ট:</label>
+                <textarea id="map-json-box" rows="3" placeholder="এখানে JSON কোড পেস্ট বা কপি করুন"></textarea>
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                  <button class="btn-secondary" style="flex:1; font-size:12px;" id="btn-export-json">এক্সপোর্ট</button>
+                  <button class="btn-secondary" style="flex:1; font-size:12px;" id="btn-import-json">ইম্পোর্ট</button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">
+                গ্রিডে ক্লিক করে উপাদান বসান (উপরে = সামনের রাস্তা, নিচে = পেছন; কলাম ০,৮ = ফুটপাত/ভবন; ১–৩ ও ৫–৭ = রাস্তার লেন; ৪ = মেট্রো/মিডিয়ান):
+              </div>
+              <canvas id="map-grid-canvas" width="520" height="620"></canvas>
+              <div class="msg-note" id="map-status-msg" style="color:var(--accent-green);"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ট্যাব ২: গেম ও ফিজিক্স এডিটর -->
+        <div class="tab-pane" id="tab-editor">
+          <div class="editor-grid">
+            <div class="form-row">
+              <label>সাধারণ সর্বোচ্চ গতি (<span id="lbl-max-speed">28</span>)</label>
+              <input type="range" id="cfg-max-speed" min="15" max="75" step="1" value="28" class="input-ctrl" />
+            </div>
+            <div class="form-row">
+              <label>টান / বুস্ট গতি (<span id="lbl-boost-speed">46</span>)</label>
+              <input type="range" id="cfg-boost-speed" min="25" max="110" step="1" value="46" class="input-ctrl" />
+            </div>
+            <div class="form-row">
+              <label>ব্যাটারি খরচের হার (<span id="lbl-bat-drain">1.0</span>x)</label>
+              <input type="range" id="cfg-bat-drain" min="0" max="3" step="0.1" value="1.0" class="input-ctrl" />
+            </div>
+            <div class="form-row">
+              <label>রাস্তার ট্রাফিক সংখ্যা (<span id="lbl-traffic">18</span>)</label>
+              <input type="range" id="cfg-traffic" min="4" max="40" step="1" value="18" class="input-ctrl" />
+            </div>
+            <div class="form-row">
+              <label>আয় ও ক্ষতি গুণক (<span id="lbl-mult">1</span>x)</label>
+              <input type="range" id="cfg-mult" min="1" max="20" step="1" value="1" class="input-ctrl" />
+            </div>
+            <div class="form-row">
+              <label>সময় ও আবহাওয়া:</label>
+              <select id="cfg-time-of-day">
+                <option value="day">ঢাকার দুপুর (উজ্জ্বল দিন)</option>
+                <option value="sunset">বিকেল / গোধূলি</option>
+                <option value="night">রাতের ঢাকা (হেডলাইট)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>পকেটে সরাসরি টাকা (৳) যোগ করুন:</label>
+              <div style="display:flex; gap:6px;">
+                <input type="number" id="cfg-add-money" class="input-ctrl" value="5000" />
+                <button class="btn-secondary" id="btn-inject-money">যোগ করুন</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>বিশেষ অ্যাডমিন মোড:</label>
+              <label style="display:flex; align-items:center; gap:8px; color:#fff; cursor:pointer; margin-top:6px;">
+                <input type="checkbox" id="cfg-god-mode" style="width:18px; height:18px;" />
+                গড মোড (বাস/পাবলিকে আউট হবে না)
+              </label>
+            </div>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn-primary" style="width:auto; padding:10px 22px; font-size:15px;" id="btn-save-cfg">পরিবর্তন প্রয়োগ করুন</button>
+            <button class="btn-secondary" id="btn-refill-battery">ব্যাটারি ১০০% করুন</button>
+          </div>
+          <div class="msg-note" id="cfg-status-msg" style="color:var(--accent-green);"></div>
+        </div>
+
+        <!-- ট্যাব ৩: সেটিংস ও পাসওয়ার্ড পরিবর্তন -->
+        <div class="tab-pane" id="tab-settings">
+          <div style="max-width:440px;">
+            <h3 style="margin-top:0; color:var(--accent-yellow);">অ্যাডমিন পাসওয়ার্ড পরিবর্তন</h3>
+            <p style="font-size:13px; color:var(--text-muted);">
+              প্রাথমিক ডিফল্ট পাসওয়ার্ড হলো <b>1234</b>। নিরাপত্তা নিশ্চিত করতে এখান থেকে নিজের গোপন পাসওয়ার্ড সেট করে নিন।
+            </p>
+            <div class="form-row">
+              <label>বর্তমান পাসওয়ার্ড:</label>
+              <input type="password" id="pwd-current" class="input-ctrl" placeholder="বর্তমান পাসওয়ার্ড" />
+            </div>
+            <div class="form-row">
+              <label>নতুন পাসওয়ার্ড (কমপক্ষে ৪ অক্ষর):</label>
+              <input type="password" id="pwd-new" class="input-ctrl" placeholder="নতুন পাসওয়ার্ড" />
+            </div>
+            <div class="form-row">
+              <label>নতুন পাসওয়ার্ড নিশ্চিত করুন:</label>
+              <input type="password" id="pwd-confirm" class="input-ctrl" placeholder="আবার নতুন পাসওয়ার্ড" />
+            </div>
+            <div class="msg-note" id="pwd-msg"></div>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+              <button class="btn-primary" style="font-size:15px; padding:10px;" id="btn-change-pwd">পাসওয়ার্ড পরিবর্তন করুন</button>
+              <button class="btn-secondary" id="btn-reset-pwd-default">ডিফল্ট (1234) রিসেট</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    /* ==========================================================
+       ১. গোপন পাসওয়ার্ড ও স্টোরেজ সিস্টেম (নিরপেক্ষ Key নাম)
+       ========================================================== */
+    const STORAGE_PWD_KEY = 'br_pref_token_v1';
+    const STORAGE_MAP_KEY = 'br_city_layout_v1';
+    const STORAGE_CFG_KEY = 'br_runtime_cfg_v1';
+
+    function simpleSaltHash(str) {
+      let h = 2166136261;
+      const salted = 'dhk_br_' + str + '_2026';
+      for (let i = 0; i < salted.length; i++) {
+        h ^= salted.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(16);
+    }
+
+    if (!localStorage.getItem(STORAGE_PWD_KEY)) {
+      localStorage.setItem(STORAGE_PWD_KEY, simpleSaltHash('1234'));
+    }
+
+    function verifyAdminPassword(inputPwd) {
+      return simpleSaltHash(inputPwd) === localStorage.getItem(STORAGE_PWD_KEY);
+    }
+
+    function updateAdminPassword(newPwd) {
+      localStorage.setItem(STORAGE_PWD_KEY, simpleSaltHash(newPwd));
+    }
+
+    /* ==========================================================
+       ২. ডিফল্ট গেম কনফিগারেশন ও ঢাকার গ্রিড ম্যাপ ডাটা
+       ========================================================== */
+    const DEFAULT_CONFIG = {
+      maxSpeed: 28,
+      boostSpeed: 46,
+      batDrain: 1.0,
+      trafficCount: 18,
+      scoreMult: 1,
+      timeOfDay: 'day',
+      godMode: false
+    };
+
+    let gameConfig = { ...DEFAULT_CONFIG };
+    try {
+      const savedCfg = JSON.parse(localStorage.getItem(STORAGE_CFG_KEY) || 'null');
+      if (savedCfg) gameConfig = { ...DEFAULT_CONFIG, ...savedCfg };
+    } catch (_) {}
+
+    const GRID_ROWS = 24;
+    const GRID_COLS = 9;
+    const TILE_Z = 20;
+    const WORLD_LEN = GRID_ROWS * TILE_Z; // 480m লুপ
+    const LANE_X = [-18, -12, -8, -4, 0, 4, 8, 12, 18];
+
+    function createDefaultDhakaMap() {
+      const items = [];
+      const shops = [
+        'মায়ের দোয়া স্টোর', 'ভাই ভাই ট্রেডার্স', 'তাজ বিরিয়ানি হাউস',
+        'বিসমিল্লাহ অটো পার্টস', 'স্বপ্ন ফার্মেসি', 'ঢাকা ফ্যাশন হাউস',
+        'মা বাবার দোয়া টি স্টল', 'শাহবাগ ফুল ঘর', 'আনন্দ সিনেমা হল'
+      ];
+      const mrtStations = [
+        { r: 2, label: 'মতিঝিল মেট্রো' },
+        { r: 7, label: 'শাহবাগ মেট্রো' },
+        { r: 12, label: 'ফার্মগেট মেট্রো' },
+        { r: 17, label: 'মিরপুর ১০ মেট্রো' },
+        { r: 22, label: 'উত্তরা উত্তর মেট্রো' }
+      ];
+
+      for (let r = 0; r < GRID_ROWS; r++) {
+        items.push({ r, c: 0, type: 'building', label: shops[r % shops.length] });
+        items.push({ r, c: 8, type: 'building', label: shops[(r + 3) % shops.length] });
+      }
+      items.push({ r: 6, c: 0, type: 'landmark', label: 'শহীদ মিনার' });
+      items.push({ r: 9, c: 8, type: 'landmark', label: 'কার্জন হল' });
+      items.push({ r: 15, c: 0, type: 'landmark', label: 'জাতীয় সংসদ ভবন' });
+      mrtStations.forEach(m => items.push({ r: m.r, c: 4, type: 'mrt', label: m.label }));
+
+      items.push({ r: 4, c: 1, type: 'charge', label: 'মেইন লাইন চার্জ' });
+      items.push({ r: 14, c: 7, type: 'charge', label: 'মেইন লাইন চার্জ' });
+      items.push({ r: 10, c: 1, type: 'bribe', label: 'সানডে মানডে ক্লোজ' });
+      items.push({ r: 20, c: 7, type: 'bribe', label: 'মামার চা-পানি' });
+      items.push({ r: 5, c: 1, type: 'hawker', label: 'হকার জোন' });
+      items.push({ r: 16, c: 1, type: 'hawker', label: 'ফুটপাত দোকান' });
+      items.push({ r: 11, c: 2, type: 'breaker', label: 'স্পিড ব্রেকার' });
+      items.push({ r: 18, c: 6, type: 'breaker', label: 'স্পিড ব্রেকার' });
+      items.push({ r: 13, c: 2, type: 'blockade', label: 'অবরোধ র‍্যাম্প' });
+
+      return items;
+    }
+
+    let mapItems = createDefaultDhakaMap();
+    try {
+      const savedMap = JSON.parse(localStorage.getItem(STORAGE_MAP_KEY) || 'null');
+      if (Array.isArray(savedMap) && savedMap.length > 0) mapItems = savedMap;
+    } catch (_) {}
+
+    function setMapCell(r, c, type, label) {
+      mapItems = mapItems.filter(it => !(it.r === r && it.c === c));
+      if (type !== 'erase') {
+        mapItems.push({ r, c, type, label: label || '' });
+      }
+    }
+
+    /* ==========================================================
+       ৩. Web Audio API প্রসিডিউরাল সাউন্ড সিন্থেসাইজার
+       ========================================================== */
+    let audioCtx = null;
+    let isMuted = false;
+
+    function ensureAudio() {
+      if (isMuted) return null;
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      return audioCtx;
+    }
+
+    function playHorn() {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      [420, 530].forEach(freq => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.11, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+      });
+    }
+
+    function playSoundBomb() {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.exponentialRampToValueAtTime(65, now + 0.45);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.46);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.47);
+    }
+
+    function playCrashSound(heavy = false) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const len = ctx.sampleRate * (heavy ? 0.5 : 0.22);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = heavy ? 320 : 750;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(heavy ? 0.4 : 0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (heavy ? 0.48 : 0.21));
+      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.start(now);
+    }
+
+    function playCashSound() {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      [780, 1040].forEach((f, idx) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, now + idx * 0.06);
+        g.gain.setValueAtTime(0.12, now + idx * 0.06);
+        g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.16);
+        osc.connect(g).connect(ctx.destination);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.17);
+      });
+    }
+
+    /* ==========================================================
+       ৪. Three.js সেটআপ ও প্রসিডিউরাল ক্যানভাস টেক্সচার
+       ========================================================== */
+    const canvas = document.getElementById('game-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.2, 320);
+
+    const hemiLight = new THREE.HemisphereLight(0xdff0ff, 0x334433, 1.0);
+    scene.add(hemiLight);
+    const dirLight = new THREE.DirectionalLight(0xfff5dd, 1.25);
+    dirLight.position.set(40, 80, 30);
+    scene.add(dirLight);
+
+    function applyAtmosphere() {
+      if (gameConfig.timeOfDay === 'night') {
+        scene.background = new THREE.Color(0x090f1a);
+        scene.fog = new THREE.Fog(0x090f1a, 65, 220);
+        hemiLight.intensity = 0.42;
+        dirLight.intensity = 0.35;
+      } else if (gameConfig.timeOfDay === 'sunset') {
+        scene.background = new THREE.Color(0xd87a56);
+        scene.fog = new THREE.Fog(0xd87a56, 85, 240);
+        hemiLight.intensity = 0.78;
+        dirLight.intensity = 0.95;
+      } else {
+        scene.background = new THREE.Color(0x88c5e8);
+        scene.fog = new THREE.Fog(0x88c5e8, 90, 260);
+        hemiLight.intensity = 1.05;
+        dirLight.intensity = 1.25;
+      }
+    }
+    applyAtmosphere();
+
+    const texCache = new Map();
+    function makeSignTexture(text, bg = '#0f6a44', fg = '#ffffff', w = 256, h = 96) {
+      const key = `${text}|${bg}|${fg}|${w}|${h}`;
+      if (texCache.has(key)) return texCache.get(key);
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d');
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, h);
+      g.strokeStyle = '#ffd12a';
+      g.lineWidth = 6;
+      g.strokeRect(4, 4, w - 8, h - 8);
+      g.fillStyle = fg;
+      g.font = 'bold 26px "Hind Siliguri", sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(text || 'ঢাকা স্টোর', w / 2, h / 2, w - 20);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      texCache.set(key, tex);
+      return tex;
+    }
+
+    const roadGroup = new THREE.Group();
+    scene.add(roadGroup);
+
+    function buildStaticCorridor() {
+      const spanLen = WORLD_LEN * 3;
+      const roadGeo = new THREE.PlaneGeometry(34, spanLen);
+      const roadMat = new THREE.MeshLambertMaterial({ color: 0x2b3036 });
+      const road = new THREE.Mesh(roadGeo, roadMat);
+      road.rotation.x = -Math.PI / 2;
+      roadGroup.add(road);
+
+      const walkGeo = new THREE.BoxGeometry(10, 0.35, spanLen);
+      const walkMat = new THREE.MeshLambertMaterial({ color: 0x676f77 });
+      [-19, 19].forEach(x => {
+        const w = new THREE.Mesh(walkGeo, walkMat);
+        w.position.set(x, 0.17, 0);
+        roadGroup.add(w);
+      });
+
+      const medianGeo = new THREE.BoxGeometry(1.8, 0.45, spanLen);
+      const medianMat = new THREE.MeshLambertMaterial({ color: 0x3b7a57 });
+      const median = new THREE.Mesh(medianGeo, medianMat);
+      median.position.set(0, 0.22, 0);
+      roadGroup.add(median);
+
+      const trackGeo = new THREE.BoxGeometry(4.4, 1.1, spanLen);
+      const trackMat = new THREE.MeshLambertMaterial({ color: 0x8e99a4 });
+      const track = new THREE.Mesh(trackGeo, trackMat);
+      track.position.set(0, 9.2, 0);
+      roadGroup.add(track);
+
+      // InstancedMesh দিয়ে মেট্রো পিলার ও লেন ডিভাইডার (কম ড্র-কল)
+      const pillarGeo = new THREE.CylinderGeometry(0.85, 0.95, 9.0, 10);
+      const pillarMat = new THREE.MeshLambertMaterial({ color: 0x7b8691 });
+      const pillarCount = 72;
+      const pillars = new THREE.InstancedMesh(pillarGeo, pillarMat, pillarCount);
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < pillarCount; i++) {
+        dummy.position.set(0, 4.5, (i - pillarCount / 2) * 20);
+        dummy.updateMatrix();
+        pillars.setMatrixAt(i, dummy.matrix);
+      }
+      roadGroup.add(pillars);
+
+      const dashGeo = new THREE.PlaneGeometry(0.24, 4.2);
+      const dashMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
+      const dashCount = 420;
+      const dashes = new THREE.InstancedMesh(dashGeo, dashMat, dashCount);
+      let idx = 0;
+      [-10, -6, 6, 10].forEach(lx => {
+        for (let z = -WORLD_LEN * 1.5; z < WORLD_LEN * 1.5 && idx < dashCount; z += 14) {
+          dummy.position.set(lx, 0.03, z);
+          dummy.rotation.set(-Math.PI / 2, 0, 0);
+          dummy.updateMatrix();
+          dashes.setMatrixAt(idx++, dummy.matrix);
+        }
+      });
+      dashes.count = idx;
+      roadGroup.add(dashes);
+    }
+    buildStaticCorridor();
+
+    /* ==========================================================
+       ৫. ডায়নামিক ম্যাপ অবজেক্ট (ম্যাপ বিল্ডার থেকে পুনর্গঠিত)
+       ========================================================== */
+    const worldObjectsGroup = new THREE.Group();
+    scene.add(worldObjectsGroup);
+    let interactiveZones = [];
+    let destructibleStalls = [];
+
+    function rebuildWorldFromMapData() {
+      while (worldObjectsGroup.children.length > 0) {
+        worldObjectsGroup.remove(worldObjectsGroup.children[0]);
+      }
+      interactiveZones = [];
+      destructibleStalls = [];
+
+      const bPalette = [0xc9a98d, 0x89a7b1, 0xd8c38c, 0x9b8e9e, 0xa8c29a, 0x8395a7];
+
+      [-WORLD_LEN, 0, WORLD_LEN].forEach(zOffset => {
+        mapItems.forEach((item, idx) => {
+          const wx = LANE_X[item.c];
+          const wz = (item.r - GRID_ROWS / 2) * TILE_Z + zOffset;
+
+          if (item.type === 'building') {
+            const h = 7 + ((item.r * 7 + item.c * 3) % 13);
+            const geo = new THREE.BoxGeometry(6.8, h, 14);
+            const mat = new THREE.MeshLambertMaterial({ color: bPalette[(item.r + idx) % bPalette.length] });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(wx < 0 ? wx - 1.5 : wx + 1.5, h / 2, wz);
+            worldObjectsGroup.add(mesh);
+
+            const signTex = makeSignTexture(item.label || 'মায়ের দোয়া স্টোর', '#0e5c3d', '#ffd12a');
+            const signGeo = new THREE.PlaneGeometry(5.5, 2.0);
+            const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+            const sign = new THREE.Mesh(signGeo, signMat);
+            sign.position.set(wx < 0 ? wx + 1.95 : wx - 1.95, 3.3, wz);
+            sign.rotation.y = wx < 0 ? Math.PI / 2 : -Math.PI / 2;
+            worldObjectsGroup.add(sign);
+          } else if (item.type === 'landmark') {
+            const g = new THREE.Group();
+            const base = new THREE.Mesh(
+              new THREE.BoxGeometry(8.5, 1.4, 15),
+              new THREE.MeshLambertMaterial({ color: 0xdfd8c8 })
+            );
+            base.position.y = 0.7;
+            g.add(base);
+            const tower = new THREE.Mesh(
+              new THREE.BoxGeometry(2.2, 11, 2.2),
+              new THREE.MeshLambertMaterial({ color: 0xd33b2c })
+            );
+            tower.position.y = 6.2;
+            g.add(tower);
+            const sign = new THREE.Mesh(
+              new THREE.PlaneGeometry(7.2, 2.4),
+              new THREE.MeshBasicMaterial({ map: makeSignTexture(item.label || 'শহীদ মিনার', '#7d1919', '#ffffff') })
+            );
+            sign.position.set(wx < 0 ? 4.35 : -4.35, 3.6, 0);
+            sign.rotation.y = wx < 0 ? Math.PI / 2 : -Math.PI / 2;
+            g.add(sign);
+            g.position.set(wx < 0 ? wx - 2 : wx + 2, 0, wz);
+            worldObjectsGroup.add(g);
+          } else if (item.type === 'mrt') {
+            const st = new THREE.Mesh(
+              new THREE.BoxGeometry(8.6, 3.2, 17),
+              new THREE.MeshLambertMaterial({ color: 0x1e6b43 })
+            );
+            st.position.set(0, 10.6, wz);
+            worldObjectsGroup.add(st);
+            const board = new THREE.Mesh(
+              new THREE.PlaneGeometry(8.2, 2.2),
+              new THREE.MeshBasicMaterial({ map: makeSignTexture(item.label || 'মেট্রো স্টেশন', '#006747', '#ffffff') })
+            );
+            board.position.set(0, 10.6, wz + 8.55);
+            worldObjectsGroup.add(board);
+            interactiveZones.push({ type: 'station', x: 0, z: wz, radius: 14, label: item.label || 'ঢাকা মেট্রো' });
+          } else if (item.type === 'charge' || item.type === 'bribe') {
+            const isCharge = item.type === 'charge';
+            const pad = new THREE.Mesh(
+              new THREE.PlaneGeometry(3.8, 9),
+              new THREE.MeshBasicMaterial({ color: isCharge ? 0xffd12a : 0xff4fa3 })
+            );
+            pad.rotation.x = -Math.PI / 2;
+            pad.position.set(wx, 0.05, wz);
+            worldObjectsGroup.add(pad);
+            interactiveZones.push({ type: item.type, x: wx, z: wz, radius: 4.2, label: item.label });
+          } else if (item.type === 'hawker') {
+            const stall = new THREE.Group();
+            const roof = new THREE.Mesh(
+              new THREE.BoxGeometry(3.2, 0.3, 4.5),
+              new THREE.MeshLambertMaterial({ color: 0x1a73e8 })
+            );
+            roof.position.y = 2.4;
+            const table = new THREE.Mesh(
+              new THREE.BoxGeometry(2.8, 1.1, 4.0),
+              new THREE.MeshLambertMaterial({ color: 0xb97a3a })
+            );
+            table.position.y = 0.55;
+            stall.add(roof, table);
+            stall.position.set(wx, 0, wz);
+            worldObjectsGroup.add(stall);
+            destructibleStalls.push({ mesh: stall, x: wx, z: wz, hit: false });
+          } else if (item.type === 'breaker') {
+            const bump = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.45, 0.45, 4.2, 10),
+              new THREE.MeshLambertMaterial({ color: 0xffc107 })
+            );
+            bump.rotation.z = Math.PI / 2;
+            bump.position.set(wx, 0.1, wz);
+            worldObjectsGroup.add(bump);
+            interactiveZones.push({ type: 'breaker', x: wx, z: wz, radius: 2.5 });
+          } else if (item.type === 'blockade') {
+            const ramp = new THREE.Mesh(
+              new THREE.BoxGeometry(3.6, 0.8, 5.2),
+              new THREE.MeshLambertMaterial({ color: 0xe65100 })
+            );
+            ramp.rotation.x = 0.25;
+            ramp.position.set(wx, 0.35, wz);
+            worldObjectsGroup.add(ramp);
+            interactiveZones.push({ type: 'blockade', x: wx, z: wz, radius: 3.2 });
+          }
+        });
+      });
+    }
+    rebuildWorldFromMapData();
+
+    /* ==========================================================
+       ৬. খেলোয়াড়ের ব্যাটারি অটোরিকশা ("দেশি টেসলা")
+       ========================================================== */
+    const playerGroup = new THREE.Group();
+    scene.add(playerGroup);
+
+    function buildAutoRickshaw() {
+      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x00a86b });
+      const hoodMat = new THREE.MeshLambertMaterial({ color: 0x16222a });
+      const trimMat = new THREE.MeshLambertMaterial({ color: 0xffd12a });
+
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.8, 3.1), bodyMat);
+      chassis.position.y = 0.7;
+      playerGroup.add(chassis);
+
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.65, 0.9), bodyMat);
+      nose.position.set(0, 0.65, -1.7);
+      playerGroup.add(nose);
+
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.14, 2.3), hoodMat);
+      roof.position.set(0, 2.05, 0.25);
+      playerGroup.add(roof);
+
+      [[-0.82, -0.8], [0.82, -0.8], [-0.82, 1.3], [0.82, 1.3]].forEach(([px, pz]) => {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), trimMat);
+        post.position.set(px, 1.55, pz);
+        playerGroup.add(post);
+      });
+
+      const backSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.5, 0.45),
+        new THREE.MeshBasicMaterial({ map: makeSignTexture('মায়ের দোয়া', '#b71c1c', '#ffd12a', 256, 80) })
+      );
+      backSign.position.set(0, 1.05, 1.57);
+      playerGroup.add(backSign);
+
+      const wheelGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 12);
+      const wheelMat = new THREE.MeshLambertMaterial({ color: 0x181818 });
+      [[0, -1.7], [-0.88, 1.05], [0.88, 1.05]].forEach(([wx, wz]) => {
+        const w = new THREE.Mesh(wheelGeo, wheelMat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(wx, 0.32, wz);
+        playerGroup.add(w);
+      });
+
+      const dangerHalo = new THREE.Mesh(
+        new THREE.RingGeometry(1.4, 2.4, 24),
+        new THREE.MeshBasicMaterial({ color: 0xff2222, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+      );
+      dangerHalo.rotation.x = -Math.PI / 2;
+      dangerHalo.position.y = 0.07;
+      playerGroup.add(dangerHalo);
+      playerGroup.userData.dangerHalo = dangerHalo;
+    }
+    buildAutoRickshaw();
+
+    /* ==========================================================
+       ৭. ট্রাফিক এআই, পাবলিক ধাওয়া, যাত্রী ও ধ্বংসাবশেষ কণা
+       ========================================================== */
+    const trafficPool = [];
+    const trafficGroup = new THREE.Group();
+    scene.add(trafficGroup);
+
+    const VEHICLE_TYPES = [
+      { kind: 'car', w: 1.9, h: 1.4, l: 4.0, color: 0xe6e9ed, speed: 14, score: 1800, lethal: false },
+      { kind: 'bike', w: 0.7, h: 1.1, l: 2.0, color: 0xd9381e, speed: 18, score: 1200, lethal: false },
+      { kind: 'vip', w: 2.0, h: 1.45, l: 4.4, color: 0x111519, speed: 20, score: 10000, lethal: false },
+      { kind: 'bus', w: 2.5, h: 3.1, l: 8.8, color: 0x1a539c, speed: 16, score: 0, lethal: true },
+      { kind: 'truck', w: 2.5, h: 2.9, l: 7.4, color: 0x2e6f40, speed: 15, score: 0, lethal: true }
+    ];
+
+    function spawnTraffic() {
+      while (trafficGroup.children.length > 0) trafficGroup.remove(trafficGroup.children[0]);
+      trafficPool.length = 0;
+
+      const laneChoices = [-12, -8, -4, 4, 8, 12];
+      for (let i = 0; i < gameConfig.trafficCount; i++) {
+        const roll = Math.random();
+        let spec = VEHICLE_TYPES[0];
+        if (roll < 0.25) spec = VEHICLE_TYPES[1];
+        else if (roll < 0.34) spec = VEHICLE_TYPES[2];
+        else if (roll < 0.56) spec = VEHICLE_TYPES[3];
+        else if (roll < 0.68) spec = VEHICLE_TYPES[4];
+
+        const laneX = laneChoices[i % laneChoices.length];
+        const dir = laneX < 0 ? -1 : 1;
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(spec.w, spec.h, spec.l),
+          new THREE.MeshLambertMaterial({ color: spec.color })
+        );
+        const zPos = (Math.random() - 0.5) * WORLD_LEN;
+        mesh.position.set(laneX, spec.h / 2, zPos);
+        trafficGroup.add(mesh);
+
+        trafficPool.push({
+          mesh,
+          spec,
+          laneX,
+          dir,
+          speed: spec.speed * (0.85 + Math.random() * 0.35),
+          hitCooldown: 0
+        });
+      }
+    }
+
+    const publicPool = [];
+    const publicGroup = new THREE.Group();
+    scene.add(publicGroup);
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 0.4, 1.65, 8),
+        new THREE.MeshLambertMaterial({ color: i % 2 === 0 ? 0xff453a : 0xff9f0a })
+      );
+      m.visible = false;
+      publicGroup.add(m);
+      publicPool.push({ mesh: m, active: false });
+    }
+
+    const passengerNames = ['খালাম্মা', 'লেট ভাই', 'হাফ-ভাড়ার ছাত্রী', 'কমিটির স্যার', 'প্রবাসী ভাই'];
+    const passengerMarker = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 1.2, 0.12, 16),
+      new THREE.MeshBasicMaterial({ color: 0x00ff99 })
+    );
+    passengerMarker.position.set(-13.5, 0.08, -60);
+    scene.add(passengerMarker);
+
+    const debrisParticles = [];
+    const debrisGeo = new THREE.BoxGeometry(0.32, 0.32, 0.32);
+
+    function emitDebris(x, y, z, color) {
+      for (let i = 0; i < 9; i++) {
+        const m = new THREE.Mesh(debrisGeo, new THREE.MeshBasicMaterial({ color }));
+        m.position.set(x, y + 0.5, z);
+        scene.add(m);
+        debrisParticles.push({
+          mesh: m,
+          vx: (Math.random() - 0.5) * 14,
+          vy: 4 + Math.random() * 7,
+          vz: (Math.random() - 0.5) * 14,
+          life: 1.1
+        });
+      }
+    }
+
+    /* ==========================================================
+       ৮. গেম স্টেট, কন্ট্রোল ও গেমপ্লে লুপ
+       ========================================================== */
+    const state = {
+      running: false,
+      paused: false,
+      x: -8,
+      y: 0,
+      vy: 0,
+      z: 0,
+      speed: 0,
+      battery: 100,
+      pocket: 0,
+      loss: 0,
+      heat: 0,
+      crashes: 0,
+      camMode: 0,
+      passenger: null,
+      destZ: -140,
+      stationName: 'শাহবাগ',
+      rampBonusCooldown: 0,
+      lastTime: performance.now()
+    };
+
+    const keys = {};
+    const touchState = { left: false, right: false, drive: false, boost: false, brake: false };
+
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (!state.running || state.paused) return;
+      if (e.code === 'KeyH') playHorn();
+      if (e.code === 'KeyB') triggerSoundBomb();
+      if (e.code === 'KeyC') cycleCamera();
+      if (e.code === 'KeyM') toggleMute();
+      if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+    });
+
+    window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+    function bindTouchBtn(id, prop, actionFn) {
+      const el = document.getElementById(id);
+      const onDown = ev => {
+        ev.preventDefault();
+        el.classList.add('active');
+        if (prop) touchState[prop] = true;
+        if (actionFn) actionFn();
+      };
+      const onUp = ev => {
+        ev.preventDefault();
+        el.classList.remove('active');
+        if (prop) touchState[prop] = false;
+      };
+      el.addEventListener('pointerdown', onDown);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+      el.addEventListener('pointerleave', onUp);
+    }
+
+    bindTouchBtn('t-left', 'left');
+    bindTouchBtn('t-right', 'right');
+    bindTouchBtn('t-drive', 'drive');
+    bindTouchBtn('t-boost', 'boost');
+    bindTouchBtn('t-brake', 'brake');
+    bindTouchBtn('t-horn', null, () => playHorn());
+    bindTouchBtn('t-bomb', null, () => triggerSoundBomb());
+
+    function showToast(msg) {
+      const el = document.getElementById('alert-info');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(el._tm);
+      el._tm = setTimeout(() => { el.style.display = 'none'; }, 2100);
+    }
+
+    function triggerSoundBomb() {
+      if (!state.running || state.paused) return;
+      playSoundBomb();
+      showToast('শব্দবোমা! খাইছি তোরে!');
+      trafficPool.forEach(t => {
+        if (!t.spec.lethal && Math.hypot(t.mesh.position.x - state.x, t.mesh.position.z - state.z) < 16) {
+          t.mesh.position.x += (t.mesh.position.x >= state.x ? 3.5 : -3.5);
+        }
+      });
+    }
+
+    function cycleCamera() {
+      state.camMode = (state.camMode + 1) % 3;
+      const names = ['মাঝে', 'দূরে', 'চালকের চোখে'];
+      showToast('ক্যামেরা: ' + names[state.camMode]);
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      document.getElementById('btn-mute').textContent = isMuted ? 'নীরব' : 'শব্দ (M)';
+    }
+
+    function togglePause(forceState) {
+      if (!state.running) return;
+      state.paused = typeof forceState === 'boolean' ? forceState : !state.paused;
+      document.getElementById('pause-screen').style.display = state.paused ? 'flex' : 'none';
+    }
+
+    document.getElementById('btn-cam').onclick = cycleCamera;
+    document.getElementById('btn-mute').onclick = toggleMute;
+    document.getElementById('btn-pause').onclick = () => togglePause();
+    document.getElementById('btn-resume').onclick = () => togglePause(false);
+    document.getElementById('btn-restart-from-pause').onclick = () => {
+      document.getElementById('pause-screen').style.display = 'none';
+      startNewRun();
+    };
+
+    function startNewRun() {
+      ensureAudio();
+      state.running = true;
+      state.paused = false;
+      state.x = -8;
+      state.y = 0;
+      state.vy = 0;
+      state.z = 0;
+      state.speed = 0;
+      state.battery = 100;
+      state.pocket = 0;
+      state.loss = 0;
+      state.heat = 0;
+      state.crashes = 0;
+      state.passenger = null;
+      passengerMarker.position.set(-13.5, 0.08, -70);
+      passengerMarker.material.color.setHex(0x00ff99);
+
+      destructibleStalls.forEach(s => { s.hit = false; s.mesh.visible = true; });
+      publicPool.forEach(p => { p.active = false; p.mesh.visible = false; });
+      spawnTraffic();
+
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('gameover-screen').style.display = 'none';
+      document.getElementById('hud').style.display = 'block';
+    }
+
+    document.getElementById('btn-start-game').onclick = startNewRun;
+    document.getElementById('btn-play-again').onclick = startNewRun;
+
+    /* ==========================================================
+       ৯. দৈনিক যানজট সংবাদপত্র কার্ড জেনারেটর (শেষ ফলাফল)
+       ========================================================== */
+    function renderNewspaperCard(reasonText) {
+      const c = document.getElementById('newspaper-preview');
+      const g = c.getContext('2d');
+      g.fillStyle = '#f3ebd8';
+      g.fillRect(0, 0, c.width, c.height);
+
+      g.strokeStyle = '#222';
+      g.lineWidth = 4;
+      g.strokeRect(14, 14, c.width - 28, c.height - 28);
+
+      g.fillStyle = '#111';
+      g.font = 'bold 38px "Hind Siliguri", sans-serif';
+      g.textAlign = 'center';
+      g.fillText('দৈনিক যানজট', c.width / 2, 66);
+
+      g.font = '14px "Hind Siliguri", sans-serif';
+      g.fillText('ঢাকা সংস্করণ · বিশেষ ট্রাফিক বুলেটিন', c.width / 2, 92);
+      g.fillRect(28, 105, c.width - 56, 3);
+
+      g.fillStyle = '#b71c1c';
+      g.font = 'bold 24px "Hind Siliguri", sans-serif';
+      g.fillText(reasonText, c.width / 2, 144);
+
+      g.fillStyle = '#1f2830';
+      g.fillRect(36, 166, c.width - 72, 190);
+      g.fillStyle = '#ffd12a';
+      g.font = 'bold 28px "Hind Siliguri", sans-serif';
+      g.fillText(`জাতীয় ক্ষতি: ৳${Math.round(state.loss).toLocaleString('en-US')}`, c.width / 2, 232);
+      g.fillStyle = '#00e088';
+      g.font = 'bold 22px "Hind Siliguri", sans-serif';
+      g.fillText(`পকেট আয়: ৳${Math.round(state.pocket).toLocaleString('en-US')} | ধাক্কা: ${state.crashes}টি`, c.width / 2, 280);
+      g.fillStyle = '#cfd8dc';
+      g.font = '15px "Hind Siliguri", sans-serif';
+      g.fillText(`শেষ অবস্থান: ${state.stationName}`, c.width / 2, 322);
+
+      g.fillStyle = '#222';
+      g.font = '16px "Hind Siliguri", sans-serif';
+      g.fillText('ঘটনাস্থলের ছবি তুলেছেন একজন পথচারী,', c.width / 2, 396);
+      g.fillText('যিনি সাহায্য না করে ভিডিও করছিলেন।', c.width / 2, 420);
+
+      g.fillStyle = '#444';
+      g.font = '14px "Hind Siliguri", sans-serif';
+      g.fillText('তদন্তে ৩ সদস্যের কমিটি গঠন করা হয়েছে।', c.width / 2, 470);
+      g.fillText('আগের ৪১টি কমিটির প্রতিবেদন এখনও জমা পড়েনি।', c.width / 2, 494);
+
+      g.fillRect(28, 540, c.width - 56, 2);
+      g.fillStyle = '#111';
+      g.font = 'bold 16px "Hind Siliguri", sans-serif';
+      g.fillText('নমুনা অনুপ্রেরণা: বাপের রাস্তা · কাস্টম থ্রিডি সংস্করণ', c.width / 2, 586);
+    }
+
+    function endRun(reasonText) {
+      if (gameConfig.godMode) return;
+      state.running = false;
+      playCrashSound(true);
+      document.getElementById('hud').style.display = 'none';
+      document.getElementById('gameover-reason').textContent = reasonText;
+      renderNewspaperCard(reasonText);
+      document.getElementById('gameover-screen').style.display = 'flex';
+    }
+
+    document.getElementById('btn-download-card').onclick = () => {
+      const link = document.createElement('a');
+      link.download = 'dainik-janjot-report.png';
+      link.href = document.getElementById('newspaper-preview').toDataURL('image/png');
+      link.click();
+    };
+
+    /* ==========================================================
+       ১০. মূল গেম লুপ (পদার্থবিদ্যা, ট্রাফিক, স্কোরিং ও ক্যামেরা)
+       ========================================================== */
+    function stepSimulation(dt) {
+      const wantDrive = keys['KeyW'] || keys['ArrowUp'] || touchState.drive;
+      const wantBoost = keys['Space'] || keys['ShiftLeft'] || keys['ShiftRight'] || touchState.boost;
+      const wantBrake = keys['KeyS'] || keys['ArrowDown'] || touchState.brake;
+      const wantLeft = keys['KeyA'] || keys['ArrowLeft'] || touchState.left;
+      const wantRight = keys['KeyD'] || keys['ArrowRight'] || touchState.right;
+
+      const batFactor = state.battery > 0 ? 1 : 0.45;
+      let targetSpeed = 0;
+      if (wantBoost) {
+        targetSpeed = gameConfig.boostSpeed * batFactor;
+        state.battery = Math.max(0, state.battery - 4.8 * gameConfig.batDrain * dt);
+      } else if (wantDrive) {
+        targetSpeed = gameConfig.maxSpeed * batFactor;
+        state.battery = Math.max(0, state.battery - 2.1 * gameConfig.batDrain * dt);
+      }
+
+      if (wantBrake) {
+        state.speed = Math.max(-8, state.speed - 45 * dt);
+      } else {
+        state.speed += (targetSpeed - state.speed) * Math.min(1, 4.2 * dt);
+      }
+
+      const steerRate = 13.5 * (0.4 + Math.min(1, Math.abs(state.speed) / 18));
+      if (wantLeft) state.x -= steerRate * dt;
+      if (wantRight) state.x += steerRate * dt;
+      state.x = Math.max(-15.8, Math.min(15.8, state.x));
+
+      state.z -= state.speed * dt;
+      if (state.z < -WORLD_LEN / 2) state.z += WORLD_LEN;
+      if (state.z > WORLD_LEN / 2) state.z -= WORLD_LEN;
+
+      // লুপিং করিডোরে যাত্রী মার্কারকে সর্বদা বর্তমান সীমার ভেতরে রাখা
+      const pDz = passengerMarker.position.z - state.z;
+      if (pDz > WORLD_LEN / 2) passengerMarker.position.z -= WORLD_LEN;
+      if (pDz < -WORLD_LEN / 2) passengerMarker.position.z += WORLD_LEN;
+
+      if (state.y > 0 || state.vy !== 0) {
+        state.y += state.vy * dt;
+        state.vy -= 26 * dt;
+        if (state.y <= 0) {
+          state.y = 0;
+          state.vy = 0;
+        }
+      }
+
+      playerGroup.position.set(state.x, state.y, state.z);
+      playerGroup.rotation.z = wantLeft ? 0.08 : wantRight ? -0.08 : 0;
+      playerGroup.rotation.y = wantLeft ? 0.12 : wantRight ? -0.12 : 0;
+
+      const isWrongWay = state.x > 1.2;
+      document.getElementById('alert-wrong').style.display = isWrongWay ? 'block' : 'none';
+      const mult = (isWrongWay ? 1.5 : 1) * gameConfig.scoreMult;
+
+      if (state.rampBonusCooldown > 0) state.rampBonusCooldown -= dt;
+      for (const z of interactiveZones) {
+        const d = Math.hypot(z.x - state.x, z.z - state.z);
+        if (z.type === 'station' && Math.abs(z.z - state.z) < 12) {
+          state.stationName = z.label;
+        } else if (z.type === 'charge' && d < z.radius && Math.abs(state.speed) < 6) {
+          state.battery = Math.min(100, state.battery + 35 * dt);
+          showToast('মেইন লাইন থেকে চার্জ হচ্ছে...');
+        } else if (z.type === 'bribe' && d < z.radius && Math.abs(state.speed) < 7 && state.heat > 0) {
+          state.heat = 0;
+          publicPool.forEach(p => { p.active = false; p.mesh.visible = false; });
+          showToast('মামাকে চা-পানি: সানডে মানডে ক্লোজ!');
+        } else if (z.type === 'breaker' && d < z.radius && state.y === 0 && state.speed > 18) {
+          state.vy = 6.2;
+          showToast('ও মাগো! স্পিড ব্রেকার!');
+        } else if (z.type === 'blockade' && d < z.radius && state.y === 0 && state.rampBonusCooldown <= 0) {
+          state.vy = 9.5;
+          state.rampBonusCooldown = 2.0;
+          state.loss += 3000 * mult;
+          state.pocket += 300 * gameConfig.scoreMult;
+          playCashSound();
+          showToast('অবরোধে উড়াল! +৳৩,০০০ ক্ষতি');
+        }
+      }
+
+      for (const st of destructibleStalls) {
+        if (!st.hit && Math.hypot(st.x - state.x, st.z - state.z) < 2.8) {
+          st.hit = true;
+          st.mesh.visible = false;
+          state.crashes++;
+          state.heat += 18;
+          state.loss += 2500 * mult;
+          state.pocket += 120 * gameConfig.scoreMult;
+          emitDebris(st.x, 0.8, st.z, 0x1a73e8);
+          playCrashSound(false);
+        }
+      }
+
+      if (Math.hypot(passengerMarker.position.x - state.x, passengerMarker.position.z - state.z) < 3.6 && Math.abs(state.speed) < 7) {
+        if (!state.passenger) {
+          state.passenger = passengerNames[Math.floor(Math.random() * passengerNames.length)];
+          state.destZ = state.z - (90 + Math.random() * 100);
+          passengerMarker.position.set(Math.random() < 0.5 ? -13.5 : 13.5, 0.08, state.destZ);
+          passengerMarker.material.color.setHex(0xffd12a);
+          playCashSound();
+          showToast(`যাত্রী উঠেছে: ${state.passenger}`);
+        } else {
+          const fare = (40 + Math.floor(Math.random() * 80)) * gameConfig.scoreMult;
+          state.pocket += fare;
+          playCashSound();
+          showToast(`${state.passenger} নেমেছেন: ভাড়া +৳${fare}`);
+          state.passenger = null;
+          passengerMarker.position.set(-13.5, 0.08, state.z - 80);
+          passengerMarker.material.color.setHex(0x00ff99);
+        }
+      }
+
+      let busClose = false;
+      for (const t of trafficPool) {
+        if (t.hitCooldown > 0) t.hitCooldown -= dt;
+        t.mesh.position.z += t.dir * t.speed * dt;
+        if (t.mesh.position.z > WORLD_LEN / 2) t.mesh.position.z -= WORLD_LEN;
+        if (t.mesh.position.z < -WORLD_LEN / 2) t.mesh.position.z += WORLD_LEN;
+
+        const dx = Math.abs(t.mesh.position.x - state.x);
+        const dz = Math.abs(t.mesh.position.z - state.z);
+
+        if (t.spec.lethal && dz < 18 && dx < 6.5) busClose = true;
+
+        if (dx < (t.spec.w / 2 + 0.85) && dz < (t.spec.l / 2 + 1.45) && state.y < 1.8) {
+          if (t.spec.lethal) {
+            if (!gameConfig.godMode) {
+              endRun('বাস-ট্রাকের সাথে সরাসরি সংঘর্ষে রান শেষ!');
+              return;
+            }
+          } else if (t.hitCooldown <= 0) {
+            t.hitCooldown = 1.2;
+            state.crashes++;
+            state.heat += 25;
+            const dmg = t.spec.score * mult;
+            state.loss += dmg;
+            state.pocket += Math.round(dmg * 0.08);
+            emitDebris(t.mesh.position.x, 0.6, t.mesh.position.z, t.spec.color);
+            playCrashSound(false);
+            showToast(t.spec.kind === 'vip' ? 'ভিআইপি গাড়িতে ধাক্কা! +৳১০,০০০' : `ধাক্কা! +৳${Math.round(dmg)}`);
+          }
+        } else if (dx > (t.spec.w / 2 + 0.85) && dx < (t.spec.w / 2 + 1.55) && dz < (t.spec.l / 2 + 1.2) && t.hitCooldown <= 0 && Math.abs(state.speed) > 16) {
+          t.hitCooldown = 1.6;
+          state.pocket += 50 * gameConfig.scoreMult;
+          state.loss += 500 * mult;
+          playCashSound();
+        }
+      }
+
+      document.getElementById('alert-bus').style.display = busClose ? 'block' : 'none';
+      playerGroup.userData.dangerHalo.material.opacity = busClose ? 0.78 : 0;
+
+      const chaseOn = state.heat >= 25;
+      document.getElementById('alert-public').style.display = chaseOn ? 'block' : 'none';
+      if (chaseOn) {
+        state.heat = Math.max(0, state.heat - 2.2 * dt);
+        publicPool.forEach((p, idx) => {
+          if (!p.active) {
+            p.active = true;
+            p.mesh.visible = true;
+            p.mesh.position.set(state.x + (idx - 2.5) * 1.6, 0.85, state.z + 18 + idx * 2);
+          }
+          const dirX = state.x - p.mesh.position.x;
+          const dirZ = state.z - p.mesh.position.z;
+          const dist = Math.hypot(dirX, dirZ) || 1;
+          const pSpeed = 14.5;
+          p.mesh.position.x += (dirX / dist) * pSpeed * dt;
+          p.mesh.position.z += (dirZ / dist) * pSpeed * dt;
+          if (dist < 1.75 && !gameConfig.godMode) {
+            endRun('ক্ষুব্ধ পাবলিক ধরে ফেলেছে: গণধোলাই!');
+          }
+        });
+      }
+
+      for (let i = debrisParticles.length - 1; i >= 0; i--) {
+        const d = debrisParticles[i];
+        d.mesh.position.x += d.vx * dt;
+        d.mesh.position.y += d.vy * dt;
+        d.mesh.position.z += d.vz * dt;
+        d.vy -= 18 * dt;
+        d.life -= dt;
+        if (d.life <= 0 || d.mesh.position.y < 0) {
+          scene.remove(d.mesh);
+          debrisParticles.splice(i, 1);
+        }
+      }
+
+      document.getElementById('hud-pocket').textContent = `৳${Math.round(state.pocket).toLocaleString('en-US')}`;
+      document.getElementById('hud-loss').textContent = `জাতীয় ক্ষতি: ৳${Math.round(state.loss).toLocaleString('en-US')}`;
+      document.getElementById('hud-speed').textContent = `${Math.round(Math.abs(state.speed) * 2.2)} কিমি/ঘণ্টা`;
+      document.getElementById('hud-bat-pct').textContent = `${Math.round(state.battery)}%`;
+      document.getElementById('battery-fill').style.width = `${state.battery}%`;
+      document.getElementById('hud-station').textContent = `এলাকা: ${state.stationName}`;
+      document.getElementById('hud-passenger').textContent = `যাত্রী: ${state.passenger || 'নেই'}`;
+    }
+
+    function updateCamera() {
+      if (state.camMode === 0) {
+        camera.position.lerp(new THREE.Vector3(state.x * 0.85, state.y + 4.4, state.z + 9.2), 0.14);
+        camera.lookAt(state.x, state.y + 1.3, state.z - 14);
+      } else if (state.camMode === 1) {
+        camera.position.lerp(new THREE.Vector3(state.x * 0.7, state.y + 8.5, state.z + 17), 0.14);
+        camera.lookAt(state.x, state.y + 1.0, state.z - 22);
+      } else {
+        camera.position.set(state.x, state.y + 1.75, state.z - 0.5);
+        camera.lookAt(state.x, state.y + 1.4, state.z - 28);
+      }
+    }
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.05, (now - state.lastTime) / 1000);
+      state.lastTime = now;
+
+      if (state.running && !state.paused) {
+        stepSimulation(dt);
+      }
+      updateCamera();
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /* ==========================================================
+       ১১. গোপন অ্যাডমিন ট্রিগার (বাম কোণায় টাকার বারে ৫ ক্লিক)
+       ========================================================== */
+    const moneyHud = document.getElementById('money-hud');
+    const authModal = document.getElementById('admin-auth-modal');
+    const adminModal = document.getElementById('admin-panel-modal');
+    const passInput = document.getElementById('admin-pass-input');
+    const authError = document.getElementById('auth-error');
+
+    let tapCount = 0;
+    let tapTimer = null;
+
+    moneyHud.addEventListener('click', () => {
+      tapCount++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { tapCount = 0; }, 2500);
+
+      if (tapCount >= 5) {
+        tapCount = 0;
+        clearTimeout(tapTimer);
+        if (state.running) state.paused = true;
+        passInput.value = '';
+        authError.textContent = '';
+        authModal.style.display = 'flex';
+        setTimeout(() => passInput.focus(), 60);
+      }
+    });
+
+    function submitAuth() {
+      if (verifyAdminPassword(passInput.value)) {
+        authModal.style.display = 'none';
+        openAdminPanel();
+      } else {
+        authError.textContent = 'ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।';
+      }
+    }
+
+    document.getElementById('btn-auth-submit').onclick = submitAuth;
+    passInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+    document.getElementById('btn-auth-cancel').onclick = () => {
+      authModal.style.display = 'none';
+      if (state.running && document.getElementById('pause-screen').style.display === 'none') {
+        state.paused = false;
+      }
+    };
+
+    /* ==========================================================
+       ১২. অ্যাডমিন কন্ট্রোল প্যানেল: ট্যাব, ম্যাপ বিল্ডার ও এডিটর
+       ========================================================== */
+    function openAdminPanel() {
+      adminModal.style.display = 'flex';
+      syncEditorInputs();
+      drawMapGrid();
+    }
+
+    document.getElementById('btn-close-admin').onclick = () => {
+      adminModal.style.display = 'none';
+      if (state.running && document.getElementById('pause-screen').style.display === 'none') {
+        state.paused = false;
+      }
+    };
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'tab-map') drawMapGrid();
+      };
+    });
+
+    let selectedTool = 'building';
+    const mapCanvas = document.getElementById('map-grid-canvas');
+    const mg = mapCanvas.getContext('2d');
+
+    document.querySelectorAll('#map-tool-list .tool-chip').forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll('#map-tool-list .tool-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        selectedTool = chip.dataset.tool;
+      };
+    });
+
+    const TOOL_COLORS = {
+      building: '#6c8aa6',
+      landmark: '#e53935',
+      mrt: '#00a86b',
+      charge: '#ffd12a',
+      bribe: '#ff4fa3',
+      hawker: '#1e88e5',
+      breaker: '#fb8c00',
+      blockade: '#8d6e63'
+    };
+
+    function drawMapGrid() {
+      const cw = mapCanvas.width / GRID_COLS;
+      const ch = mapCanvas.height / GRID_ROWS;
+      mg.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+      for (let r = 0; r < GRID_ROWS; r++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          let bg = '#222830';
+          if (c === 0 || c === 8) bg = '#3a3f46';
+          else if (c === 4) bg = '#1f3b2c';
+          mg.fillStyle = bg;
+          mg.fillRect(c * cw, r * ch, cw - 1, ch - 1);
+        }
+      }
+
+      mapItems.forEach(it => {
+        mg.fillStyle = TOOL_COLORS[it.type] || '#ffffff';
+        mg.fillRect(it.c * cw + 3, it.r * ch + 2, cw - 7, ch - 5);
+        if (it.label) {
+          mg.fillStyle = '#000';
+          mg.font = 'bold 10px sans-serif';
+          mg.fillText(it.label, it.c * cw + 4, it.r * ch + ch / 2 + 3, cw - 8);
+        }
+      });
+    }
+
+    mapCanvas.addEventListener('click', e => {
+      const rect = mapCanvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (mapCanvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (mapCanvas.height / rect.height);
+      const c = Math.floor(x / (mapCanvas.width / GRID_COLS));
+      const r = Math.floor(y / (mapCanvas.height / GRID_ROWS));
+      if (r >= 0 && r < GRID_ROWS && c >= 0 && c < GRID_COLS) {
+        const customLbl = document.getElementById('map-custom-label').value.trim();
+        setMapCell(r, c, selectedTool, customLbl);
+        drawMapGrid();
+        document.getElementById('map-status-msg').textContent = `গ্রিড (${r}, ${c}) আপডেট হয়েছে। সেভ বাটনে চাপুন।`;
+      }
+    });
+
+    document.getElementById('btn-apply-map').onclick = () => {
+      localStorage.setItem(STORAGE_MAP_KEY, JSON.stringify(mapItems));
+      rebuildWorldFromMapData();
+      document.getElementById('map-status-msg').textContent = 'ম্যাপ সেভ হয়েছে এবং ৩ডি শহর আপডেট করা হয়েছে!';
+    };
+
+    document.getElementById('btn-reset-default-map').onclick = () => {
+      mapItems = createDefaultDhakaMap();
+      localStorage.setItem(STORAGE_MAP_KEY, JSON.stringify(mapItems));
+      rebuildWorldFromMapData();
+      drawMapGrid();
+      document.getElementById('map-status-msg').textContent = 'ডিফল্ট ঢাকা ম্যাপ পুনরুদ্ধার করা হয়েছে।';
+    };
+
+    document.getElementById('btn-export-json').onclick = () => {
+      document.getElementById('map-json-box').value = JSON.stringify(mapItems);
+      document.getElementById('map-status-msg').textContent = 'ম্যাপ ডাটা JSON হিসেবে এক্সপোর্ট হয়েছে।';
+    };
+
+    document.getElementById('btn-import-json').onclick = () => {
+      try {
+        const parsed = JSON.parse(document.getElementById('map-json-box').value);
+        if (Array.isArray(parsed)) {
+          mapItems = parsed;
+          localStorage.setItem(STORAGE_MAP_KEY, JSON.stringify(mapItems));
+          rebuildWorldFromMapData();
+          drawMapGrid();
+          document.getElementById('map-status-msg').textContent = 'কাস্টম JSON ম্যাপ লোড হয়েছে!';
+        }
+      } catch (_) {
+        document.getElementById('map-status-msg').textContent = 'অকার্যকর JSON ফরম্যাট!';
+      }
+    };
+
+    function syncEditorInputs() {
+      document.getElementById('cfg-max-speed').value = gameConfig.maxSpeed;
+      document.getElementById('lbl-max-speed').textContent = gameConfig.maxSpeed;
+      document.getElementById('cfg-boost-speed').value = gameConfig.boostSpeed;
+      document.getElementById('lbl-boost-speed').textContent = gameConfig.boostSpeed;
+      document.getElementById('cfg-bat-drain').value = gameConfig.batDrain;
+      document.getElementById('lbl-bat-drain').textContent = gameConfig.batDrain;
+      document.getElementById('cfg-traffic').value = gameConfig.trafficCount;
+      document.getElementById('lbl-traffic').textContent = gameConfig.trafficCount;
+      document.getElementById('cfg-mult').value = gameConfig.scoreMult;
+      document.getElementById('lbl-mult').textContent = gameConfig.scoreMult;
+      document.getElementById('cfg-time-of-day').value = gameConfig.timeOfDay;
+      document.getElementById('cfg-god-mode').checked = gameConfig.godMode;
+    }
+
+    ['max-speed', 'boost-speed', 'bat-drain', 'traffic', 'mult'].forEach(id => {
+      const el = document.getElementById('cfg-' + id);
+      el.addEventListener('input', () => {
+        document.getElementById('lbl-' + id).textContent = el.value;
+      });
+    });
+
+    document.getElementById('btn-save-cfg').onclick = () => {
+      const prevTraffic = gameConfig.trafficCount;
+      gameConfig.maxSpeed = Number(document.getElementById('cfg-max-speed').value);
+      gameConfig.boostSpeed = Number(document.getElementById('cfg-boost-speed').value);
+      gameConfig.batDrain = Number(document.getElementById('cfg-bat-drain').value);
+      gameConfig.trafficCount = Number(document.getElementById('cfg-traffic').value);
+      gameConfig.scoreMult = Number(document.getElementById('cfg-mult').value);
+      gameConfig.timeOfDay = document.getElementById('cfg-time-of-day').value;
+      gameConfig.godMode = document.getElementById('cfg-god-mode').checked;
+
+      localStorage.setItem(STORAGE_CFG_KEY, JSON.stringify(gameConfig));
+      applyAtmosphere();
+      if (prevTraffic !== gameConfig.trafficCount) spawnTraffic();
+      document.getElementById('cfg-status-msg').textContent = 'গেম সেটিংস সফলভাবে প্রয়োগ হয়েছে!';
+    };
+
+    document.getElementById('btn-inject-money').onclick = () => {
+      const amt = Number(document.getElementById('cfg-add-money').value) || 0;
+      state.pocket += amt;
+      document.getElementById('hud-pocket').textContent = `৳${Math.round(state.pocket).toLocaleString('en-US')}`;
+      document.getElementById('cfg-status-msg').textContent = `পকেটে ৳${amt} যোগ করা হয়েছে!`;
+    };
+
+    document.getElementById('btn-refill-battery').onclick = () => {
+      state.battery = 100;
+      document.getElementById('cfg-status-msg').textContent = 'ব্যাটারি ১০০% পূর্ণ করা হয়েছে!';
+    };
+
+    document.getElementById('btn-change-pwd').onclick = () => {
+      const cur = document.getElementById('pwd-current').value;
+      const np = document.getElementById('pwd-new').value;
+      const cp = document.getElementById('pwd-confirm').value;
+      const msg = document.getElementById('pwd-msg');
+
+      if (!verifyAdminPassword(cur)) {
+        msg.style.color = '#ff6b6b';
+        msg.textContent = 'বর্তমান পাসওয়ার্ড সঠিক নয়।';
+        return;
+      }
+      if (np.length < 4) {
+        msg.style.color = '#ff6b6b';
+        msg.textContent = 'নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।';
+        return;
+      }
+      if (np !== cp) {
+        msg.style.color = '#ff6b6b';
+        msg.textContent = 'নতুন পাসওয়ার্ড দুটি মেলেনি।';
+        return;
+      }
+      updateAdminPassword(np);
+      document.getElementById('pwd-current').value = '';
+      document.getElementById('pwd-new').value = '';
+      document.getElementById('pwd-confirm').value = '';
+      msg.style.color = '#00e088';
+      msg.textContent = 'পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!';
+    };
+
+    document.getElementById('btn-reset-pwd-default').onclick = () => {
+      updateAdminPassword('1234');
+      const msg = document.getElementById('pwd-msg');
+      msg.style.color = '#ffd12a';
+      msg.textContent = 'পাসওয়ার্ড পুনরায় ডিফল্ট (1234) করা হয়েছে।';
+    };
+  </script>
+</body>
+</html>
